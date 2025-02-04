@@ -54,18 +54,7 @@ public class TraineeService {
 
     public void updateTrainee(Trainee trainee) {
         logger.info("Updating trainee with username: {}", trainee.getUsername());
-
-        Optional<Trainee> existingTraineeOpt = traineeDAO.findByUsername(trainee.getUsername());
-        existingTraineeOpt.ifPresent(existingTrainee -> {
-            Optional.ofNullable(trainee.getFirstName()).ifPresent(existingTrainee::setFirstName);
-            Optional.ofNullable(trainee.getLastName()).ifPresent(existingTrainee::setLastName);
-            Optional.ofNullable(trainee.getPassword()).ifPresent(existingTrainee::setPassword);
-            Optional.ofNullable(trainee.getDateOfBirth()).ifPresent(existingTrainee::setDateOfBirth);
-            Optional.ofNullable(trainee.getAddress()).ifPresent(existingTrainee::setAddress);
-            existingTrainee.setActive(trainee.isActive());
-
-            traineeDAO.updateTrainee(existingTrainee);
-        });
+        traineeDAO.updateTrainee(trainee);
     }
 
     public Collection<Trainee> getAllTrainees() {
