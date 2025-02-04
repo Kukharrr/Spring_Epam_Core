@@ -45,7 +45,18 @@ public class TrainingService {
 
     public void updateTraining(Training training) {
         logger.info("Updating training with ID: {}", training.getId());
-        trainingDAO.updateTraining(training);
+
+        Optional<Training> existingTrainingOpt = trainingDAO.findById(training.getId());
+        existingTrainingOpt.ifPresent(existingTraining -> {
+            Optional.ofNullable(training.getTraineeUsername()).ifPresent(existingTraining::setTraineeUsername);
+            Optional.ofNullable(training.getTrainerUsername()).ifPresent(existingTraining::setTrainerUsername);
+            Optional.ofNullable(training.getTrainingName()).ifPresent(existingTraining::setTrainingName);
+            Optional.ofNullable(training.getTrainingType()).ifPresent(existingTraining::setTrainingType);
+            Optional.ofNullable(training.getTrainingDate()).ifPresent(existingTraining::setTrainingDate);
+            existingTraining.setTrainingDuration(training.getTrainingDuration());
+
+            trainingDAO.updateTraining(existingTraining);
+        });
     }
 
     public Collection<Training> getAllTrainings() {

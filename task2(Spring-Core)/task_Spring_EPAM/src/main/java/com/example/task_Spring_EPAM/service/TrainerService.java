@@ -54,7 +54,17 @@ public class TrainerService {
 
     public void updateTrainer(Trainer trainer) {
         logger.info("Updating trainer with username: {}", trainer.getUsername());
-        trainerDAO.updateTrainer(trainer);
+
+        Optional<Trainer> existingTrainerOpt = trainerDAO.findByUsername(trainer.getUsername());
+        existingTrainerOpt.ifPresent(existingTrainer -> {
+            Optional.ofNullable(trainer.getFirstName()).ifPresent(existingTrainer::setFirstName);
+            Optional.ofNullable(trainer.getLastName()).ifPresent(existingTrainer::setLastName);
+            Optional.ofNullable(trainer.getPassword()).ifPresent(existingTrainer::setPassword);
+            Optional.ofNullable(trainer.getSpecialization()).ifPresent(existingTrainer::setSpecialization);
+            existingTrainer.setActive(trainer.isActive());
+
+            trainerDAO.updateTrainer(existingTrainer);
+        });
     }
 
     public Collection<Trainer> getAllTrainers() {
