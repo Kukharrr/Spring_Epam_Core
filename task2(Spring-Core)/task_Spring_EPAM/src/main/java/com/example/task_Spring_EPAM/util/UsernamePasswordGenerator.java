@@ -1,21 +1,28 @@
 package com.example.task_Spring_EPAM.util;
 
-import java.util.Random;
+import java.util.Optional;
+import java.util.function.Function;
+import org.springframework.stereotype.Component;
 
+@Component
 public class UsernamePasswordGenerator {
 
     public static String generateUsername(String firstName, String lastName) {
-        return firstName.toLowerCase() + "." + lastName.toLowerCase();
+        return (firstName.toLowerCase() + "." + lastName.toLowerCase()).replace(" ", "");
     }
 
     public static String generatePassword() {
-        int length = 10;
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        Random rnd = new Random();
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
+        return Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 10);
+    }
+
+    public <T> String generateUniqueUsername(String firstName, String lastName, Function<String, Optional<T>> findByUsernameFunction) {
+        int serialNumber = 0;
+        String baseUsername = generateUsername(firstName, lastName);
+        String username = baseUsername;
+        while (findByUsernameFunction.apply(username).isPresent()) {
+            serialNumber++;
+            username = baseUsername + serialNumber;
         }
-        return sb.toString();
+        return username;
     }
 }

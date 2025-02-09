@@ -17,20 +17,20 @@ public class TraineeService {
     private static final Logger logger = LoggerFactory.getLogger(TraineeService.class);
 
     private TraineeDAO traineeDAO;
+    private UsernamePasswordGenerator usernamePasswordGenerator;
 
     @Autowired
     public void setTraineeDAO(TraineeDAO traineeDAO) {
         this.traineeDAO = traineeDAO;
     }
 
+    @Autowired
+    public void setUsernamePasswordGenerator(UsernamePasswordGenerator usernamePasswordGenerator) {
+        this.usernamePasswordGenerator = usernamePasswordGenerator;
+    }
+
     public void createTrainee(Trainee trainee) {
-        int serialNumber = 0;
-        String baseUsername = UsernamePasswordGenerator.generateUsername(trainee.getFirstName(), trainee.getLastName());
-        String username = baseUsername;
-        while (traineeDAO.findByUsername(username).isPresent()) {
-            serialNumber++;
-            username = baseUsername + serialNumber;
-        }
+        String username = usernamePasswordGenerator.generateUniqueUsername(trainee.getFirstName(), trainee.getLastName(), traineeDAO::findByUsername);
         String password = UsernamePasswordGenerator.generatePassword();
 
         trainee.setUsername(username);
