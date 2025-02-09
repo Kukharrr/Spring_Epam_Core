@@ -1,0 +1,18 @@
+[
+  {
+    "traineeUsername": "john.doe",
+    "trainerUsername": "mike.smith",
+    "trainingName": "Morning Workout",
+    "trainingType": "Cardio",
+    "trainingDate": "2023-01-25",
+    "trainingDuration": 60
+  },
+  {
+    "traineeUsername": "jane.doe",
+    "trainerUsername": "anna.johnson",
+    "trainingName": "Evening Yoga",
+    "trainingType": "Yoga",
+    "trainingDate": "2023-01-26",
+    "trainingDuration": 90
+  }
+]
