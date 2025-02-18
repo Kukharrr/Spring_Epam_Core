@@ -1,14 +1,14 @@
 package com.example.epam.controller;
 
 import com.example.epam.dto.*;
-import com.example.epam.entity.Trainee;
 import com.example.epam.entity.Trainer;
 import com.example.epam.service.TrainerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +16,7 @@ import java.util.Optional;
 @RequestMapping("/trainers")
 public class TrainerController {
 
+    private static final Logger logger = LoggerFactory.getLogger(TrainerController.class);
     private final TrainerService trainerService;
 
     @Autowired
@@ -26,19 +27,22 @@ public class TrainerController {
     @PostMapping
     public ResponseEntity<Trainer> createTrainer(@RequestBody TrainerCreateDto trainerCreateDto) {
         Trainer trainer = trainerService.createTrainer(trainerCreateDto);
-        return ResponseEntity.ok(trainer);
+        return ResponseEntity.status(201).body(trainer); // HTTP status CREATED
     }
 
     @GetMapping
-    public ResponseEntity<List<Trainer>> getTrainees() {
-        List<Trainer> trainees = trainerService.getAllTrainers();
-        return ResponseEntity.ok(trainees);
+    public ResponseEntity<List<Trainer>> getTrainers() {
+        List<Trainer> trainers = trainerService.getAllTrainers();
+        return ResponseEntity.ok(trainers);
     }
 
     @GetMapping("/{username}")
     public ResponseEntity<Trainer> getTrainerByUsername(@PathVariable String username) {
         Optional<Trainer> trainer = trainerService.findTrainerByUsername(username);
-        return trainer.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return trainer.map(ResponseEntity::ok).orElseGet(() -> {
+            logger.warn("Trainer not found with username: {}", username);
+            return ResponseEntity.notFound().build();
+        });
     }
 
     @PostMapping("/match")
@@ -54,7 +58,7 @@ public class TrainerController {
     }
 
     @PutMapping
-    public ResponseEntity<Trainer> updateTrainer( @RequestBody TrainerUpdateDto trainer) {
+    public ResponseEntity<Trainer> updateTrainer(@RequestBody TrainerUpdateDto trainer) {
         Trainer updatedTrainer = trainerService.updateTrainer(trainer);
         return ResponseEntity.ok(updatedTrainer);
     }
@@ -70,10 +74,4 @@ public class TrainerController {
         trainerService.deleteTrainer(username);
         return ResponseEntity.noContent().build();
     }
-
-//    @GetMapping("/unassigned/{traineeUsername}")
-//    public ResponseEntity<Collection<Trainer>> getUnassignedTrainers(@PathVariable String traineeUsername) {
-//        Collection<Trainer> unassignedTrainers = trainerService.getUnassignedTrainers(traineeUsername);
-//        return ResponseEntity.ok(unassignedTrainers);
-//    }
 }

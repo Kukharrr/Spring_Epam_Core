@@ -1,21 +1,18 @@
 package com.example.epam.service;
 
-
 import com.example.epam.dao.UserDao;
 import com.example.epam.dto.TraineeCreateDto;
 import com.example.epam.dto.TraineeUpdateDto;
 import com.example.epam.entity.Trainee;
-import com.example.epam.entity.Trainer;
 import com.example.epam.entity.User;
 import com.example.epam.util.UsernamePasswordGenerator;
 import com.example.epam.dao.TraineeDao;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -32,6 +29,7 @@ public class TraineeService {
         this.usernamePasswordGenerator = usernamePasswordGenerator;
     }
 
+    @Transactional
     public Trainee createTrainee(TraineeCreateDto traineeCreateDto) {
         String username = usernamePasswordGenerator.generateUniqueUsername(traineeCreateDto.getFirstName(), traineeCreateDto.getLastName(), traineeDAO::findByUsername);
         String password = UsernamePasswordGenerator.generatePassword();
@@ -53,18 +51,18 @@ public class TraineeService {
         return trainee;
     }
 
+    @Transactional
     public Optional<Trainee> findTraineeByUsername(String username) {
-        logger.info("Finding trainee by username: {}", username);
         return traineeDAO.findByUsername(username);
     }
 
+    @Transactional
     public void deleteTrainee(String username) {
-        logger.info("Deleting trainee by username: {}", username);
         traineeDAO.deleteByUsername(username);
     }
 
+    @Transactional
     public Trainee updateTrainee(TraineeUpdateDto traineeUpdateDto) {
-        logger.info("Updating trainee with username: {}", traineeUpdateDto.getUsername());
         Optional<Trainee> existingTraineeOpt = traineeDAO.findByUsername(traineeUpdateDto.getUsername());
         existingTraineeOpt.ifPresent(existingTrainee -> {
             User existingUser = existingTrainee.getUser();
@@ -84,15 +82,16 @@ public class TraineeService {
     }
 
     public List<Trainee> getAllTrainees() {
-        logger.info("Getting all trainees");
         return traineeDAO.getAll();
     }
 
+    @Transactional
     public boolean matchTraineeCredentials(String username, String password) {
         Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
         return traineeOpt.isPresent() && traineeOpt.get().getUser().getPassword().equals(password);
     }
 
+    @Transactional
     public void updatePassword(String username, String newPassword) {
         Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
         traineeOpt.ifPresent(trainee -> {
@@ -101,6 +100,7 @@ public class TraineeService {
         });
     }
 
+    @Transactional
     public void setActiveStatus(String username, boolean isActive) {
         Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
         traineeOpt.ifPresent(trainee -> {
@@ -108,14 +108,4 @@ public class TraineeService {
             traineeDAO.updateTrainee(trainee);
         });
     }
-
-//    public void updateTrainerList(String traineeUsername, Set<Trainer> trainers) {
-//        Optional<Trainee> traineeOpt = traineeDAO.findByUsername(traineeUsername);
-//        if (traineeOpt.isPresent()) {
-//            Trainee trainee = traineeOpt.get();
-//            trainee.setTrainers(trainers);
-//            traineeDAO.updateTrainee(trainee);
-//        }
-//    }
-
 }

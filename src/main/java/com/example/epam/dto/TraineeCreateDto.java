@@ -14,7 +14,7 @@ public class TraineeCreateDto {
     private String lastName;
 
     @JsonProperty("dateOfBirth")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd") // Ensures correct parsing
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private Date dateOfBirth;
 
     @JsonProperty("address")

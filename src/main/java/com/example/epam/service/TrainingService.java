@@ -1,8 +1,8 @@
 package com.example.epam.service;
 
 import com.example.epam.dao.TrainingDao;
-
 import com.example.epam.entity.Training;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,23 +23,24 @@ public class TrainingService {
         this.trainingDAO = trainingDAO;
     }
 
+    @Transactional
     public void createTraining(Training training) {
         trainingDAO.save(training);
         logger.info("Created training with ID: {}", training.getId());
     }
 
+    @Transactional
     public Optional<Training> findTrainingById(Long id) {
-        logger.info("Finding training by ID: {}", id);
         return trainingDAO.findById(id);
     }
 
+    @Transactional
     public void deleteTraining(Long id) {
-        logger.info("Deleting training by ID: {}", id);
         trainingDAO.delete(id);
     }
 
+    @Transactional
     public void updateTraining(Training training) {
-        logger.info("Updating training with ID: {}", training.getId());
         Optional<Training> existingTrainingOpt = trainingDAO.findById(training.getId());
         existingTrainingOpt.ifPresent(existingTraining -> {
             Optional.ofNullable(training.getTrainee()).ifPresent(existingTraining::setTrainee);
@@ -53,10 +54,10 @@ public class TrainingService {
     }
 
     public Collection<Training> getAllTrainings() {
-        logger.info("Getting all trainings");
         return trainingDAO.getAll();
     }
 
+    @Transactional
     public Collection<Training> getTrainingsByTrainee(String traineeUsername, Date startDate, Date endDate, String trainerName, String trainingType) {
         return trainingDAO.getAll().stream()
                 .filter(training -> training.getTrainee().getUser().getUsername().equals(traineeUsername))
@@ -67,6 +68,7 @@ public class TrainingService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public Collection<Training> getTrainingsByTrainer(String trainerUsername, Date startDate, Date endDate, String traineeName) {
         return trainingDAO.getAll().stream()
                 .filter(training -> training.getTrainer().getUser().getUsername().equals(trainerUsername))

@@ -1,11 +1,11 @@
 package com.example.epam.controller;
 
-
 import com.example.epam.entity.Training;
 import com.example.epam.exception.ResourceNotFoundException;
 import com.example.epam.service.TrainingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
@@ -21,41 +21,49 @@ public class TrainingController {
     }
 
     @PostMapping
-    public Training createTraining(@RequestBody Training training) {
-        logger.info("Creating training with name: {}", training.getTrainingName());
+    public ResponseEntity<Training> createTraining(@RequestBody Training training) {
+        if (training == null) {
+            logger.error("Training is null");
+            return ResponseEntity.badRequest().build();
+        }
         trainingService.createTraining(training);
-        return training;
+        return ResponseEntity.status(201).body(training); // HTTP status CREATED
     }
 
     @GetMapping
-    public Collection<Training> getAllTrainings() {
-        logger.info("Getting all trainings");
-        return trainingService.getAllTrainings();
+    public ResponseEntity<Collection<Training>> getAllTrainings() {
+        return ResponseEntity.ok(trainingService.getAllTrainings());
     }
 
     @GetMapping("/{id}")
-    public Training getTrainingById(@PathVariable Long id) {
-        logger.info("Getting training with ID: {}", id);
+    public ResponseEntity<Training> getTrainingById(@PathVariable Long id) {
         return trainingService.findTrainingById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Training not found with ID: " + id));
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    logger.warn("Training not found with ID: {}", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     @PutMapping
-    public Training updateTraining(@RequestBody Training training) {
-        logger.info("Updating training with ID: {}", training.getId());
+    public ResponseEntity<Training> updateTraining(@RequestBody Training training) {
+        if (training == null) {
+            logger.error("Training is null");
+            return ResponseEntity.badRequest().build();
+        }
         if (!trainingService.findTrainingById(training.getId()).isPresent()) {
             throw new ResourceNotFoundException("Training not found with ID: " + training.getId());
         }
         trainingService.updateTraining(training);
-        return training;
+        return ResponseEntity.ok(training);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTraining(@PathVariable Long id) {
-        logger.info("Deleting training with ID: {}", id);
+    public ResponseEntity<Void> deleteTraining(@PathVariable Long id) {
         if (!trainingService.findTrainingById(id).isPresent()) {
             throw new ResourceNotFoundException("Training not found with ID: " + id);
         }
         trainingService.deleteTraining(id);
+        return ResponseEntity.noContent().build();
     }
 }

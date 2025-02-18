@@ -11,15 +11,17 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
-#    volumes:
-#      - postgres_data:/var/lib/postgresql/data
+    #    volumes:
+    #      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d training_db"]
       interval: 10s
       retries: 5
 
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile
     container_name: training_app
     depends_on:
       postgres:
