@@ -7,7 +7,9 @@ import com.example.epam.entity.Trainee;
 import com.example.epam.entity.User;
 import com.example.epam.util.UsernamePasswordGenerator;
 import com.example.epam.dao.TraineeDao;
-import jakarta.transaction.Transactional;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,91 +23,183 @@ public class TraineeService {
     private final TraineeDao traineeDAO;
     private final UserDao userDao;
     private final UsernamePasswordGenerator usernamePasswordGenerator;
+    private final SessionFactory sessionFactory;
 
     @Autowired
-    public TraineeService(TraineeDao traineeDAO, UserDao userDao, UsernamePasswordGenerator usernamePasswordGenerator) {
+    public TraineeService(TraineeDao traineeDAO, UserDao userDao, UsernamePasswordGenerator usernamePasswordGenerator, SessionFactory sessionFactory) {
         this.traineeDAO = traineeDAO;
         this.userDao = userDao;
         this.usernamePasswordGenerator = usernamePasswordGenerator;
+        this.sessionFactory = sessionFactory;
     }
 
-    @Transactional
     public Trainee createTrainee(TraineeCreateDto traineeCreateDto) {
-        String username = usernamePasswordGenerator.generateUniqueUsername(traineeCreateDto.getFirstName(), traineeCreateDto.getLastName(), traineeDAO::findByUsername);
-        String password = UsernamePasswordGenerator.generatePassword();
-        Trainee trainee = new Trainee();
-        User user = new User();
-        user.setPassword(username);
-        user.setUsername(password);
-        user.setFirstName(traineeCreateDto.getFirstName());
-        user.setLastName(traineeCreateDto.getLastName());
-        user.setActive(true);
-        userDao.save(user);
+        Session session = null;
+        Transaction transaction = null;
 
-        trainee.setUser(user);
-        trainee.setAddress(traineeCreateDto.getAddress());
-        trainee.setDateOfBirth(traineeCreateDto.getDateOfBirth());
-        traineeDAO.save(trainee);
-        logger.info("Created trainee with username: {}", trainee.getUser().getUsername());
+        try {
+            session = sessionFactory.openSession();
+            transaction = session.beginTransaction();
 
-        return trainee;
+            String username = usernamePasswordGenerator.generateUniqueUsername(traineeCreateDto.getFirstName(), traineeCreateDto.getLastName(), traineeDAO::findByUsername);
+            String password = UsernamePasswordGenerator.generatePassword();
+            Trainee trainee = new Trainee();
+            User user = new User();
+            user.setPassword(password);
+            user.setUsername(username);
+            user.setFirstName(traineeCreateDto.getFirstName());
+            user.setLastName(traineeCreateDto.getLastName());
+            user.setActive(true);
+            userDao.save(user);
+
+            trainee.setUser(user);
+            trainee.setAddress(traineeCreateDto.getAddress());
+            trainee.setDateOfBirth(traineeCreateDto.getDateOfBirth());
+            traineeDAO.save(trainee);
+
+            transaction.commit();
+
+            logger.info("Created trainee with username: {}", trainee.getUser().getUsername());
+
+            return trainee;
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 
-    @Transactional
     public Optional<Trainee> findTraineeByUsername(String username) {
         return traineeDAO.findByUsername(username);
     }
 
-    @Transactional
     public void deleteTrainee(String username) {
-        traineeDAO.deleteByUsername(username);
+        Session session = null;
+        Transaction transaction = null;
+
+        try {
+            session = sessionFactory.openSession();
+            transaction = session.beginTransaction();
+
+            traineeDAO.deleteByUsername(username);
+
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 
-    @Transactional
     public Trainee updateTrainee(TraineeUpdateDto traineeUpdateDto) {
-        Optional<Trainee> existingTraineeOpt = traineeDAO.findByUsername(traineeUpdateDto.getUsername());
-        existingTraineeOpt.ifPresent(existingTrainee -> {
-            User existingUser = existingTrainee.getUser();
-            Optional.ofNullable(traineeUpdateDto.getFirstName()).ifPresent(existingUser::setFirstName);
-            Optional.ofNullable(traineeUpdateDto.getLastName()).ifPresent(existingUser::setLastName);
-            Optional.ofNullable(traineeUpdateDto.getPassword()).ifPresent(existingUser::setPassword);
-            existingUser.setActive(traineeUpdateDto.getIsActive());
-            userDao.update(existingUser);
+        Session session = null;
+        Transaction transaction = null;
 
-            existingTrainee.setUser(existingUser);
-            Optional.ofNullable(traineeUpdateDto.getDateOfBirth()).ifPresent(existingTrainee::setDateOfBirth);
-            Optional.ofNullable(traineeUpdateDto.getAddress()).ifPresent(existingTrainee::setAddress);
+        try {
+            session = sessionFactory.openSession();
+            transaction = session.beginTransaction();
 
-            traineeDAO.updateTrainee(existingTrainee);
-        });
-        return existingTraineeOpt.get();
+            Optional<Trainee> existingTraineeOpt = traineeDAO.findByUsername(traineeUpdateDto.getUsername());
+            existingTraineeOpt.ifPresent(existingTrainee -> {
+                User existingUser = existingTrainee.getUser();
+                Optional.ofNullable(traineeUpdateDto.getFirstName()).ifPresent(existingUser::setFirstName);
+                Optional.ofNullable(traineeUpdateDto.getLastName()).ifPresent(existingUser::setLastName);
+                Optional.ofNullable(traineeUpdateDto.getPassword()).ifPresent(existingUser::setPassword);
+                existingUser.setActive(traineeUpdateDto.getIsActive());
+                userDao.update(existingUser);
+
+                existingTrainee.setUser(existingUser);
+                Optional.ofNullable(traineeUpdateDto.getDateOfBirth()).ifPresent(existingTrainee::setDateOfBirth);
+                Optional.ofNullable(traineeUpdateDto.getAddress()).ifPresent(existingTrainee::setAddress);
+
+                traineeDAO.updateTrainee(existingTrainee);
+            });
+
+            transaction.commit();
+
+            return existingTraineeOpt.get();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 
     public List<Trainee> getAllTrainees() {
         return traineeDAO.getAll();
     }
 
-    @Transactional
     public boolean matchTraineeCredentials(String username, String password) {
         Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
         return traineeOpt.isPresent() && traineeOpt.get().getUser().getPassword().equals(password);
     }
 
-    @Transactional
     public void updatePassword(String username, String newPassword) {
-        Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
-        traineeOpt.ifPresent(trainee -> {
-            trainee.getUser().setPassword(newPassword);
-            traineeDAO.updateTrainee(trainee);
-        });
+        Session session = null;
+        Transaction transaction = null;
+
+        try {
+            session = sessionFactory.openSession();
+            transaction = session.beginTransaction();
+
+            Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
+            traineeOpt.ifPresent(trainee -> {
+                trainee.getUser().setPassword(newPassword);
+                traineeDAO.updateTrainee(trainee);
+            });
+
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 
-    @Transactional
     public void setActiveStatus(String username, boolean isActive) {
-        Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
-        traineeOpt.ifPresent(trainee -> {
-            trainee.getUser().setActive(isActive);
-            traineeDAO.updateTrainee(trainee);
-        });
+        Session session = null;
+        Transaction transaction = null;
+
+        try {
+            session = sessionFactory.openSession();
+            transaction = session.beginTransaction();
+
+            Optional<Trainee> traineeOpt = traineeDAO.findByUsername(username);
+            traineeOpt.ifPresent(trainee -> {
+                trainee.getUser().setActive(isActive);
+                traineeDAO.updateTrainee(trainee);
+            });
+
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            throw e;
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 }
