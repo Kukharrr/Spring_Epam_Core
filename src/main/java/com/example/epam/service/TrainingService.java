@@ -1,7 +1,12 @@
 package com.example.epam.service;
 
 import com.example.epam.dao.TrainingDao;
+import com.example.epam.dao.TrainerDao;
+import com.example.epam.dao.TraineeDao;
 import com.example.epam.entity.Training;
+import com.example.epam.entity.TrainingType;
+import com.example.epam.entity.Trainer;
+import com.example.epam.entity.Trainee;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -10,41 +15,48 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Date;
-import java.util.Optional;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class TrainingService {
     private static final Logger logger = LoggerFactory.getLogger(TrainingService.class);
-    private final TrainingDao trainingDAO;
+    private final TrainingDao trainingDao;
+    private final TrainerDao trainerDao;
+    private final TraineeDao traineeDao;
     private final SessionFactory sessionFactory;
 
     @Autowired
-    public TrainingService(TrainingDao trainingDAO, SessionFactory sessionFactory) {
-        this.trainingDAO = trainingDAO;
+    public TrainingService(TrainingDao trainingDao, TrainerDao trainerDao, TraineeDao traineeDao, SessionFactory sessionFactory) {
+        this.trainingDao = trainingDao;
+        this.trainerDao = trainerDao;
+        this.traineeDao = traineeDao;
         this.sessionFactory = sessionFactory;
     }
 
-    public void createTraining(Training training) {
+    public void createTraining(Training training, String trainerUsername) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Creating training, transactionId: {}, trainerUsername: {}, training: {}", transactionId, trainerUsername, training);
         Session session = null;
         Transaction transaction = null;
-
         try {
             session = sessionFactory.openSession();
             transaction = session.beginTransaction();
-
-            trainingDAO.save(training);
-
+            Trainer trainer = trainerDao.findByUsername(trainerUsername, session).orElseThrow(() -> new RuntimeException("Trainer not found"));
+            Trainee trainee = traineeDao.findByUsername(training.getTrainee().getUser().getUsername(), session).orElseThrow(() -> new RuntimeException("Trainee not found"));
+            training.setTrainer(trainer);
+            training.setTrainee(trainee);
+            trainingDao.save(training, session);
             transaction.commit();
-
-            logger.info("Created training with ID: {}", training.getId());
         } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
-            throw e;
+            logger.error("Error creating training, transactionId: {}, trainerUsername: {}, error: {}", transactionId, trainerUsername, e.getMessage());
+            throw new RuntimeException("Failed to create training", e);
         } finally {
             if (session != null) {
                 session.close();
@@ -52,26 +64,17 @@ public class TrainingService {
         }
     }
 
-    public Optional<Training> findTrainingById(Long id) {
-        return trainingDAO.findById(id);
-    }
-
-    public void deleteTraining(Long id) {
+    public Collection<Training> getTrainingsByTraineeWithRelations(String traineeUsername, LocalDate from, LocalDate to, String trainerName, String trainingType) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Getting trainings by trainee with relations, transactionId: {}, traineeUsername: {}, from: {}, to: {}, trainerName: {}, trainingType: {}", transactionId, traineeUsername, from, to, trainerName, trainingType);
         Session session = null;
-        Transaction transaction = null;
-
         try {
             session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            trainingDAO.delete(id);
-
-            transaction.commit();
+            Collection<Training> trainings = trainingDao.findByTraineeWithRelations(traineeUsername, from, to, trainerName, trainingType, session);
+            return trainings;
         } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
+            logger.error("Error getting trainings by trainee with relations, transactionId: {}, traineeUsername: {}, error: {}", transactionId, traineeUsername, e.getMessage());
+            throw new RuntimeException("Failed to get trainings by trainee with relations", e);
         } finally {
             if (session != null) {
                 session.close();
@@ -79,31 +82,17 @@ public class TrainingService {
         }
     }
 
-    public void updateTraining(Training training) {
+    public Collection<Training> getTrainingsByTrainer(String trainerUsername, LocalDate from, LocalDate to, String traineeName) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Getting trainings by trainer, transactionId: {}, trainerUsername: {}, from: {}, to: {}, traineeName: {}", transactionId, trainerUsername, from, to, traineeName);
         Session session = null;
-        Transaction transaction = null;
-
         try {
             session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            Optional<Training> existingTrainingOpt = trainingDAO.findById(training.getId());
-            existingTrainingOpt.ifPresent(existingTraining -> {
-                Optional.ofNullable(training.getTrainee()).ifPresent(existingTraining::setTrainee);
-                Optional.ofNullable(training.getTrainer()).ifPresent(existingTraining::setTrainer);
-                Optional.ofNullable(training.getTrainingName()).ifPresent(existingTraining::setTrainingName);
-                Optional.ofNullable(training.getTrainingType()).ifPresent(existingTraining::setTrainingType);
-                Optional.ofNullable(training.getTrainingDate()).ifPresent(existingTraining::setTrainingDate);
-                existingTraining.setTrainingDuration(training.getTrainingDuration());
-                trainingDAO.updateTraining(existingTraining);
-            });
-
-            transaction.commit();
+            Collection<Training> trainings = trainingDao.findByTrainerWithRelations(trainerUsername, from, to, traineeName, session);
+            return trainings;
         } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
+            logger.error("Error getting trainings by trainer, transactionId: {}, trainerUsername: {}, error: {}", transactionId, trainerUsername, e.getMessage());
+            throw new RuntimeException("Failed to get trainings by trainer", e);
         } finally {
             if (session != null) {
                 session.close();
@@ -111,26 +100,21 @@ public class TrainingService {
         }
     }
 
-    public Collection<Training> getAllTrainings() {
-        return trainingDAO.getAll();
-    }
-
-    public Collection<Training> getTrainingsByTrainee(String traineeUsername, Date startDate, Date endDate, String trainerName, String trainingType) {
-        return trainingDAO.getAll().stream()
-                .filter(training -> training.getTrainee().getUser().getUsername().equals(traineeUsername))
-                .filter(training -> (startDate == null || !training.getTrainingDate().before(startDate)) &&
-                        (endDate == null || !training.getTrainingDate().after(endDate)))
-                .filter(training -> trainerName == null || training.getTrainer().getUser().getUsername().equals(trainerName))
-                .filter(training -> trainingType == null || training.getTrainingType().getTrainingTypeName().equals(trainingType))
-                .collect(Collectors.toList());
-    }
-
-    public Collection<Training> getTrainingsByTrainer(String trainerUsername, Date startDate, Date endDate, String traineeName) {
-        return trainingDAO.getAll().stream()
-                .filter(training -> training.getTrainer().getUser().getUsername().equals(trainerUsername))
-                .filter(training -> (startDate == null || !training.getTrainingDate().before(startDate)) &&
-                        (endDate == null || !training.getTrainingDate().after(endDate)))
-                .filter(training -> traineeName == null || training.getTrainee().getUser().getUsername().equals(traineeName))
-                .collect(Collectors.toList());
+    public List<TrainingType> getAllTrainingTypes() {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Getting all training types, transactionId: {}", transactionId);
+        Session session = null;
+        try {
+            session = sessionFactory.openSession();
+            List<TrainingType> types = trainingDao.getAllTrainingTypes(session);
+            return types;
+        } catch (Exception e) {
+            logger.error("Error getting all training types, transactionId: {}, error: {}", transactionId, e.getMessage());
+            throw new RuntimeException("Failed to get all training types", e);
+        } finally {
+            if (session != null) {
+                session.close();
+            }
+        }
     }
 }

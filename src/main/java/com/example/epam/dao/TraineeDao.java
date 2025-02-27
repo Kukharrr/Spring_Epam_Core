@@ -1,16 +1,20 @@
 package com.example.epam.dao;
 
+import com.example.epam.dto.TraineeUpdateDto;
 import com.example.epam.entity.Trainee;
+import com.example.epam.entity.Trainer;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.query.Query;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public class TraineeDao {
@@ -22,80 +26,62 @@ public class TraineeDao {
         this.sessionFactory = sessionFactory;
     }
 
-    public void save(Trainee trainee) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            if (trainee.getId() == null) {
-                session.save(trainee);
-                logger.info("Trainee saved: {}", trainee);
-            } else {
-                session.update(trainee);
-                logger.info("Trainee updated: {}", trainee);
-            }
-            session.getTransaction().commit();
-        } catch (Exception e) {
-            logger.error("Error saving or updating trainee: {}", trainee, e);
-            throw e;
+    public void save(Trainee trainee, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Saving trainee in DAO, transactionId: {}, username: {}", transactionId, trainee.getUser().getUsername());
+        session.save(trainee);
+    }
+
+    public Optional<Trainee> findByUsernameWithTrainers(String username, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Finding trainee by username with trainers, transactionId: {}, username: {}", transactionId, username);
+        Query<Trainee> query = session.createQuery("SELECT t FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.user.username = :username");
+        query.setParameter("username", username);
+        return query.getResultList().stream().findFirst();
+    }
+
+    public Optional<Trainee> findByUsername(String username, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Finding trainee by username, transactionId: {}, username: {}", transactionId, username);
+        Query<Trainee> query = session.createQuery("SELECT t FROM Trainee t WHERE t.user.username = :username");
+        query.setParameter("username", username);
+        return query.getResultList().stream().findFirst();
+    }
+
+    public void updateTrainee(Trainee trainee, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Updating trainee in DAO, transactionId: {}, username: {}", transactionId, trainee.getUser().getUsername());
+        session.update(trainee);
+    }
+
+    public void updatePassword(String username, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Updating trainee password in DAO, transactionId: {}, username: {}", transactionId, username);
+        Trainee trainee = findByUsername(username, session).orElseThrow(() -> new RuntimeException("Trainee not found"));
+        session.update(trainee);
+    }
+
+    public void setActiveStatus(String username, boolean isActive, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Setting trainee active status in DAO, transactionId: {}, username: {}, isActive: {}", transactionId, username, isActive);
+        Trainee trainee = findByUsername(username, session).orElseThrow(() -> new RuntimeException("Trainee not found"));
+        trainee.getUser().setIsActive(isActive);
+        session.update(trainee);
+    }
+
+    public void delete(Long id, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Deleting trainee in DAO, transactionId: {}, id: {}", transactionId, id);
+        Trainee trainee = session.get(Trainee.class, id);
+        if (trainee != null) {
+            session.delete(trainee);
         }
     }
 
-    public Optional<Trainee> getById(Long id) {
-        try (Session session = sessionFactory.openSession()) {
-            logger.info("Getting trainee by ID: {}", id);
-            return Optional.ofNullable(session.get(Trainee.class, id));
-        } catch (Exception e) {
-            logger.error("Error getting trainee by ID: {}", id, e);
-            throw e;
-        }
-    }
-
-    public List<Trainee> getAll() {
-        try (Session session = sessionFactory.openSession()) {
-            logger.info("Getting all trainees");
-            Query<Trainee> query = session.createQuery("FROM Trainee", Trainee.class);
-            return query.list();
-        } catch (Exception e) {
-            logger.error("Error getting all trainees", e);
-            throw e;
-        }
-    }
-
-    public Optional<Trainee> findByUsername(String username) {
-        try (Session session = sessionFactory.openSession()) {
-            logger.info("Finding trainee by username: {}", username);
-            Query<Trainee> query = session.createQuery(
-                    "SELECT t FROM Trainee t JOIN t.user u WHERE u.username = :username", Trainee.class);
-            query.setParameter("username", username);
-            return query.uniqueResultOptional();
-        } catch (Exception e) {
-            logger.error("Error finding trainee by username: {}", username, e);
-            throw e;
-        }
-    }
-
-    public void deleteByUsername(String username) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            logger.info("Deleting trainee by username: {}", username);
-            Query<?> query = session.createQuery("DELETE FROM Trainee t WHERE t.user.username = :username");
-            query.setParameter("username", username);
-            query.executeUpdate();
-            session.getTransaction().commit();
-        } catch (Exception e) {
-            logger.error("Error deleting trainee by username: {}", username, e);
-            throw e;
-        }
-    }
-
-    public void updateTrainee(Trainee trainee) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            session.update(trainee);
-            session.getTransaction().commit();
-            logger.info("Trainee updated: {}", trainee);
-        } catch (Exception e) {
-            logger.error("Error updating trainee: {}", trainee, e);
-            throw e;
-        }
+    @SuppressWarnings("unchecked")
+    public List<Trainer> getAll(Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Getting all trainers, transactionId: {}", transactionId);
+        return session.createQuery("SELECT t FROM Trainer t").getResultList();
     }
 }
