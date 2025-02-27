@@ -1,7 +1,7 @@
 package com.example.task_Spring_EPAM.entity;
 
 import lombok.Data;
-import java.util.Date;
+import java.time.LocalDate;
 
 @Data
 public class Trainee {
@@ -10,6 +10,6 @@ public class Trainee {
     private String username;
     private String password;
     private boolean active;
-    private Date dateOfBirth;
+    private LocalDate dateOfBirth;
     private String address;
 }

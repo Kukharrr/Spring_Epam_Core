@@ -1,17 +1,34 @@
 package com.example.epam.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Date;
-
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "training")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Training {
+    private static final Logger logger = LoggerFactory.getLogger(Training.class);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "training_name")
+    private String trainingName;
+
+    @Column(name = "training_date")
+    private LocalDate trainingDate;
+
+    @Column(name = "training_duration")
+    private Integer trainingDuration;
 
     @ManyToOne
     @JoinColumn(name = "trainee_id", nullable = false, foreignKey = @ForeignKey(name = "fk_training_trainee"))
@@ -24,70 +41,4 @@ public class Training {
     @ManyToOne
     @JoinColumn(name = "training_type_id", nullable = false, foreignKey = @ForeignKey(name = "fk_training_type"))
     private TrainingType trainingType;
-
-    @Column(name = "training_name", nullable = false)
-    private String trainingName;
-
-    @Column(name = "training_date", nullable = false)
-    private Date trainingDate;
-
-    @Column(name = "training_duration", nullable = false)
-    private int trainingDuration;
-
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Trainee getTrainee() {
-        return trainee;
-    }
-
-    public void setTrainee(Trainee trainee) {
-        this.trainee = trainee;
-    }
-
-    public Trainer getTrainer() {
-        return trainer;
-    }
-
-    public void setTrainer(Trainer trainer) {
-        this.trainer = trainer;
-    }
-
-    public TrainingType getTrainingType() {
-        return trainingType;
-    }
-
-    public void setTrainingType(TrainingType trainingType) {
-        this.trainingType = trainingType;
-    }
-
-    public String getTrainingName() {
-        return trainingName;
-    }
-
-    public void setTrainingName(String trainingName) {
-        this.trainingName = trainingName;
-    }
-
-    public Date getTrainingDate() {
-        return trainingDate;
-    }
-
-    public void setTrainingDate(Date trainingDate) {
-        this.trainingDate = trainingDate;
-    }
-
-    public int getTrainingDuration() {
-        return trainingDuration;
-    }
-
-    public void setTrainingDuration(int trainingDuration) {
-        this.trainingDuration = trainingDuration;
-    }
 }
