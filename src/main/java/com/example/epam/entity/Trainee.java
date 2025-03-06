@@ -1,22 +1,30 @@
 package com.example.epam.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import org.springframework.context.annotation.Configuration;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Date;
-
-
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trainees")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Trainee {
+    private static final Logger logger = LoggerFactory.getLogger(Trainee.class);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "date_of_birth")
-    private Date dateOfBirth;
+    private LocalDate dateOfBirth;
 
     @Column(name = "address")
     private String address;
@@ -25,35 +33,14 @@ public class Trainee {
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_trainee_user"))
     private User user;
 
-    public Long getId() {
-        return id;
-    }
+    @ManyToMany
+    @JoinTable(
+            name = "trainee_trainer",
+            joinColumns = @JoinColumn(name = "trainee_id"),
+            inverseJoinColumns = @JoinColumn(name = "trainer_id")
+    )
+    private List<Trainer> trainers = new ArrayList<>();
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Date getDateOfBirth() {
-        return dateOfBirth;
-    }
-
-    public void setDateOfBirth(Date dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
+    @OneToMany(mappedBy = "trainee", cascade = CascadeType.ALL)
+    private List<Training> trainings = new ArrayList<>();
 }

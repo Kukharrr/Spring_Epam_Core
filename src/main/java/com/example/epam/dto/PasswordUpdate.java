@@ -1,18 +1,12 @@
 package com.example.epam.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Setter
-@Getter
 public class PasswordUpdate {
+    @JsonProperty("password")
     private String password;
 
     public String getPassword() {
         return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 }

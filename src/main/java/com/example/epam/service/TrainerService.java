@@ -5,8 +5,9 @@ import com.example.epam.dao.UserDao;
 import com.example.epam.dto.TrainerCreateDto;
 import com.example.epam.dto.TrainerUpdateDto;
 import com.example.epam.entity.Trainer;
+import com.example.epam.entity.Trainee;
 import com.example.epam.entity.User;
-import com.example.epam.util.UsernamePasswordGenerator;
+import com.example.epam.entity.TrainingType;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -17,187 +18,162 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class TrainerService {
     private static final Logger logger = LoggerFactory.getLogger(TrainerService.class);
-    private final TrainerDao trainerDAO;
+    private final TrainerDao trainerDao;
     private final UserDao userDao;
-    private final UsernamePasswordGenerator usernamePasswordGenerator;
     private final SessionFactory sessionFactory;
 
     @Autowired
-    public TrainerService(TrainerDao trainerDAO, UserDao userDao, UsernamePasswordGenerator usernamePasswordGenerator, SessionFactory sessionFactory) {
-        this.trainerDAO = trainerDAO;
+    public TrainerService(TrainerDao trainerDao, UserDao userDao, SessionFactory sessionFactory) {
+        this.trainerDao = trainerDao;
         this.userDao = userDao;
-        this.usernamePasswordGenerator = usernamePasswordGenerator;
         this.sessionFactory = sessionFactory;
     }
 
+    private <T> T executeInTransaction(SessionFunction<T> function, String operation, String identifier, Object... params) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("{} in TrainerService, transactionId: {}, identifier: {}", operation, transactionId, identifier);
+        try (Session session = sessionFactory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            try {
+                T result = function.apply(session);
+                transaction.commit();
+                logger.info("{} successful, transactionId: {}, identifier: {}, response: 200", operation, transactionId, identifier);
+                return result;
+            } catch (Exception e) {
+                transaction.rollback();
+                logger.error("{} failed, transactionId: {}, identifier: {}, error: {}", operation, transactionId, identifier, e.getMessage());
+                throw new RuntimeException("Failed to " + operation, e);
+            }
+        }
+    }
+
+    private void executeInTransaction(SessionVoidFunction function, String operation, String identifier, Object... params) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("{} in TrainerService, transactionId: {}, identifier: {}", operation, transactionId, identifier);
+        try (Session session = sessionFactory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            try {
+                function.apply(session);
+                transaction.commit();
+                logger.info("{} successful, transactionId: {}, identifier: {}, response: 200", operation, transactionId, identifier);
+            } catch (Exception e) {
+                transaction.rollback();
+                logger.error("{} failed, transactionId: {}, identifier: {}, error: {}", operation, transactionId, identifier, e.getMessage());
+                throw new RuntimeException("Failed to " + operation, e);
+            }
+        }
+    }
+
     public Trainer createTrainer(TrainerCreateDto trainerCreateDto) {
-        Session session = null;
-        Transaction transaction = null;
-
-        try {
-            session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            String username = usernamePasswordGenerator.generateUniqueUsername(trainerCreateDto.getFirstName(), trainerCreateDto.getLastName(), trainerDAO::findByUsername);
-            String password = UsernamePasswordGenerator.generatePassword();
+        return executeInTransaction(session -> {
             User user = new User();
-            user.setUsername(username);
-            user.setPassword(password);
             user.setFirstName(trainerCreateDto.getFirstName());
             user.setLastName(trainerCreateDto.getLastName());
-            user.setActive(true);
-            userDao.save(user);
+            user.setUsername(generateUniqueUsername(trainerCreateDto.getFirstName(), trainerCreateDto.getLastName()));
+            user.setPassword(generatePassword());
+            user.setIsActive(true);
+            userDao.save(user, session);
+
             Trainer trainer = new Trainer();
             trainer.setUser(user);
             trainer.setSpecialization(trainerCreateDto.getSpecialization());
-            trainerDAO.save(trainer);
-
-            transaction.commit();
-
-            logger.info("Created trainer with username: {}", user.getUsername());
-
+            trainerDao.save(trainer, session);
             return trainer;
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        } finally {
-            if (session != null) {
-                session.close();
-            }
-        }
+        }, "create trainer", trainerCreateDto.getFirstName() + " " + trainerCreateDto.getLastName());
     }
 
-    public Optional<Trainer> findTrainerByUsername(String username) {
-        return trainerDAO.findByUsername(username);
+    public List<Trainer> getAllTrainersWithTrainees() {
+        return executeInTransaction(session -> {
+            return trainerDao.findAllWithTrainees(session);
+        }, "get all trainers with trainees", "");
     }
 
-    public void deleteTrainer(String username) {
-        Session session = null;
-        Transaction transaction = null;
-
-        try {
-            session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            trainerDAO.deleteByUsername(username);
-
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        } finally {
-            if (session != null) {
-                session.close();
-            }
-        }
-    }
-
-    public Trainer updateTrainer(TrainerUpdateDto trainerUpdateDto) {
-        Session session = null;
-        Transaction transaction = null;
-
-        try {
-            session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            Optional<Trainer> existingTrainerOpt = trainerDAO.findByUsername(trainerUpdateDto.getUsername());
-            existingTrainerOpt.ifPresent(existingTrainer -> {
-                User existingUser = existingTrainer.getUser();
-                Optional.ofNullable(trainerUpdateDto.getFirstName()).ifPresent(existingUser::setFirstName);
-                Optional.ofNullable(trainerUpdateDto.getLastName()).ifPresent(existingUser::setLastName);
-                Optional.ofNullable(trainerUpdateDto.getPassword()).ifPresent(existingUser::setPassword);
-                existingUser.setActive(trainerUpdateDto.getIsActive());
-                userDao.update(existingUser);
-
-                existingTrainer.setUser(existingUser);
-                Optional.ofNullable(trainerUpdateDto.getSpecialization()).ifPresent(existingTrainer::setSpecialization);
-                existingTrainer.getUser().setActive(trainerUpdateDto.getIsActive());
-                trainerDAO.updateTrainer(existingTrainer);
-            });
-
-            transaction.commit();
-
-            return existingTrainerOpt.get();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        } finally {
-            if (session != null) {
-                session.close();
-            }
-        }
-    }
-
-    public List<Trainer> getAllTrainers() {
-        return trainerDAO.getAll();
-    }
-
-    public boolean matchTrainerCredentials(String username, String password) {
-        Optional<Trainer> trainerOpt = trainerDAO.findByUsername(username);
-        return trainerOpt.isPresent() && trainerOpt.get().getUser().getPassword().equals(password);
+    public Trainer getTrainerProfileWithTrainees(String username) {
+        return executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsernameWithTrainees(username, session);
+            return trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+        }, "get trainer profile with trainees", username);
     }
 
     public void updatePassword(String username, String newPassword) {
-        Session session = null;
-        Transaction transaction = null;
+        executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsername(username, session);
+            Trainer trainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+            trainer.getUser().setPassword(newPassword);
+            userDao.update(trainer.getUser(), session);
+        }, "update trainer password", username);
+    }
 
-        try {
-            session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
-
-            Optional<Trainer> trainerOpt = trainerDAO.findByUsername(username);
-            trainerOpt.ifPresent(trainer -> {
-                trainer.getUser().setPassword(newPassword);
-                trainerDAO.updateTrainer(trainer);
-            });
-
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        } finally {
-            if (session != null) {
-                session.close();
-            }
-        }
+    public Trainer updateTrainer(TrainerUpdateDto trainer) {
+        return executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsername(trainer.getUsername(), session);
+            Trainer existingTrainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+            existingTrainer.getUser().setFirstName(trainer.getFirstName());
+            existingTrainer.getUser().setLastName(trainer.getLastName());
+            existingTrainer.setSpecialization(trainer.getSpecialization());
+            userDao.update(existingTrainer.getUser(), session);
+            trainerDao.updateTrainer(existingTrainer, session);
+            return existingTrainer;
+        }, "update trainer", trainer.getUsername());
     }
 
     public void setActiveStatus(String username, boolean isActive) {
-        Session session = null;
-        Transaction transaction = null;
+        executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsername(username, session);
+            Trainer trainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+            trainer.getUser().setIsActive(isActive);
+            userDao.update(trainer.getUser(), session);
+        }, "set trainer active status", username, isActive);
+    }
 
-        try {
-            session = sessionFactory.openSession();
-            transaction = session.beginTransaction();
+    public void deleteTrainer(String username) {
+        executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsername(username, session);
+            Trainer trainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+            trainerDao.delete(trainer.getId(), session);
+        }, "delete trainer", username);
+    }
 
-            Optional<Trainer> trainerOpt = trainerDAO.findByUsername(username);
-            trainerOpt.ifPresent(trainer -> {
-                trainer.getUser().setActive(isActive);
-                trainerDAO.updateTrainer(trainer);
-            });
+    public List<Trainee> getNotAssignedTrainees(String username) {
+        return executeInTransaction(session -> {
+            Optional<Trainer> trainerOpt = trainerDao.findByUsername(username, session);
+            Trainer trainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
+            List<Trainee> allTrainees = userDao.getAllTrainees(session);
+            return allTrainees.stream()
+                    .filter(trainee -> !trainer.getTrainees().contains(trainee) && trainee.getUser().getIsActive())
+                    .collect(Collectors.toList());
+        }, "get not assigned trainees", username);
+    }
 
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
-            }
-            throw e;
-        } finally {
-            if (session != null) {
-                session.close();
+    private String generateUniqueUsername(String firstName, String lastName) {
+        String baseUsername = (firstName + "." + lastName).toLowerCase();
+        String username = baseUsername;
+        int suffix = 1;
+        try (Session session = sessionFactory.openSession()) {
+            while (userDao.findByUsername(username, session).isPresent()) {
+                username = baseUsername + suffix++;
             }
         }
+        return username;
+    }
+
+    private String generatePassword() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    @FunctionalInterface
+    private interface SessionFunction<T> {
+        T apply(Session session);
+    }
+
+    @FunctionalInterface
+    private interface SessionVoidFunction {
+        void apply(Session session);
     }
 }

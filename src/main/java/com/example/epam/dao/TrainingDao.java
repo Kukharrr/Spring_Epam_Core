@@ -1,16 +1,22 @@
 package com.example.epam.dao;
 
 import com.example.epam.entity.Training;
+import com.example.epam.entity.TrainingType;
+import com.example.epam.entity.Trainer;
+import com.example.epam.entity.Trainee;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.query.Query;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public class TrainingDao {
@@ -22,63 +28,48 @@ public class TrainingDao {
         this.sessionFactory = sessionFactory;
     }
 
-    public void save(Training training) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            session.persist(training);
-            session.getTransaction().commit();
-            logger.info("Training saved: {}", training);
-        } catch (Exception e) {
-            logger.error("Error saving training: {}", training, e);
-            throw e;
-        }
+    public void save(Training training, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Saving training in DAO, transactionId: {}, trainingName: {}", transactionId, training.getTrainingName());
+        session.save(training);
     }
 
-    public Optional<Training> findById(Long id) {
-        try (Session session = sessionFactory.openSession()) {
-            logger.info("Getting training by ID: {}", id);
-            return Optional.ofNullable(session.get(Training.class, id));
-        } catch (Exception e) {
-            logger.error("Error getting training by ID: {}", id, e);
-            throw e;
-        }
+    @SuppressWarnings("unchecked")
+    public Collection<Training> findByTraineeWithRelations(String traineeUsername, LocalDate from, LocalDate to, String trainerName, String trainingType, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Finding trainings by trainee with relations, transactionId: {}, traineeUsername: {}, from: {}, to: {}, trainerName: {}, trainingType: {}", transactionId, traineeUsername, from, to, trainerName, trainingType);
+        Query<Training> query = session.createQuery("SELECT t FROM Training t LEFT JOIN FETCH t.trainer LEFT JOIN FETCH t.trainee LEFT JOIN FETCH t.trainingType WHERE t.trainee.user.username = :traineeUsername" +
+                (from != null ? " AND t.trainingDate >= :from" : "") +
+                (to != null ? " AND t.trainingDate <= :to" : "") +
+                (trainerName != null ? " AND t.trainer.user.username = :trainerName" : "") +
+                (trainingType != null ? " AND t.trainingType.trainingTypeName = :trainingType" : ""));
+        query.setParameter("traineeUsername", traineeUsername);
+        if (from != null) query.setParameter("from", from);
+        if (to != null) query.setParameter("to", to);
+        if (trainerName != null) query.setParameter("trainerName", trainerName);
+        if (trainingType != null) query.setParameter("trainingType", trainingType);
+        return query.getResultList();
     }
 
-    public List<Training> getAll() {
-        try (Session session = sessionFactory.openSession()) {
-            logger.info("Getting all trainings");
-            Query<Training> query = session.createQuery("FROM Training", Training.class);
-            return query.list();
-        } catch (Exception e) {
-            logger.error("Error getting all trainings", e);
-            throw e;
-        }
+    @SuppressWarnings("unchecked")
+    public Collection<Training> findByTrainerWithRelations(String trainerUsername, LocalDate from, LocalDate to, String traineeName, Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Finding trainings by trainer with relations, transactionId: {}, trainerUsername: {}, from: {}, to: {}, traineeName: {}", transactionId, trainerUsername, from, to, traineeName);
+        Query<Training> query = session.createQuery("SELECT t FROM Training t LEFT JOIN FETCH t.trainer LEFT JOIN FETCH t.trainee LEFT JOIN FETCH t.trainingType WHERE t.trainer.user.username = :trainerUsername" +
+                (from != null ? " AND t.trainingDate >= :from" : "") +
+                (to != null ? " AND t.trainingDate <= :to" : "") +
+                (traineeName != null ? " AND t.trainee.user.username = :traineeName" : ""));
+        query.setParameter("trainerUsername", trainerUsername);
+        if (from != null) query.setParameter("from", from);
+        if (to != null) query.setParameter("to", to);
+        if (traineeName != null) query.setParameter("traineeName", traineeName);
+        return query.getResultList();
     }
 
-    public void delete(Long id) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            logger.info("Deleting training by ID: {}", id);
-            Training training = session.get(Training.class, id);
-            if (training != null) {
-                session.remove(training);
-            }
-            session.getTransaction().commit();
-        } catch (Exception e) {
-            logger.error("Error deleting training by ID: {}", id, e);
-            throw e;
-        }
-    }
-
-    public void updateTraining(Training training) {
-        try (Session session = sessionFactory.openSession()) {
-            session.beginTransaction();
-            session.merge(training);
-            session.getTransaction().commit();
-            logger.info("Training updated: {}", training);
-        } catch (Exception e) {
-            logger.error("Error updating training: {}", training, e);
-            throw e;
-        }
+    @SuppressWarnings("unchecked")
+    public List<TrainingType> getAllTrainingTypes(Session session) {
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("Getting all training types, transactionId: {}", transactionId);
+        return session.createQuery("SELECT tt FROM TrainingType tt").getResultList();
     }
 }

@@ -1,30 +1,32 @@
 package com.example.epam.dto;
 
+import com.example.epam.entity.TrainingType;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import jakarta.validation.constraints.NotBlank;
 
 public class TrainerUpdateDto {
+    @JsonProperty("username")
+    @NotBlank
+    private String username;
+
     @JsonProperty("firstName")
+    @NotBlank
     private String firstName;
 
     @JsonProperty("lastName")
+    @NotBlank
     private String lastName;
 
     @JsonProperty("specialization")
-    private String specialization;
-
-    @JsonProperty("username")
-    private String username;
-
-    @JsonProperty("password")
-    private String password;
+    private TrainingType specialization;
 
     @JsonProperty("active")
+    @NotBlank
     private Boolean isActive;
 
-
-    public String getSpecialization() {
-        return specialization;
+    public String getUsername() {
+        return username;
     }
 
     public String getFirstName() {
@@ -35,9 +37,11 @@ public class TrainerUpdateDto {
         return lastName;
     }
 
-    public String getUsername(){ return username; }
+    public TrainingType getSpecialization() {
+        return specialization;
+    }
 
-    public String getPassword(){ return password; }
-
-    public Boolean getIsActive() {return isActive;}
+    public Boolean getIsActive() {
+        return isActive;
+    }
 }
