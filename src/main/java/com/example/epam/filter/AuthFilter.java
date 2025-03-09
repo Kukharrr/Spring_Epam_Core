@@ -26,9 +26,12 @@ public class AuthFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String path = httpRequest.getRequestURI();
 
-        if (path.startsWith("/swagger-ui/") || path.startsWith("/v3/api-docs") || path.equals("/favicon.ico") ||
-                path.startsWith("/trainees") && httpRequest.getMethod().equals("POST") ||
-                path.startsWith("/trainers") && httpRequest.getMethod().equals("POST") ||
+        if (path.startsWith("/actuator/") ||
+                path.startsWith("/swagger-ui/") ||
+                path.startsWith("/v3/api-docs") ||
+                path.equals("/favicon.ico") ||
+                (path.startsWith("/trainees") && httpRequest.getMethod().equals("POST")) ||
+                (path.startsWith("/trainers") && httpRequest.getMethod().equals("POST")) ||
                 path.equals("/auth/login")) {
             chain.doFilter(request, response);
             return;
