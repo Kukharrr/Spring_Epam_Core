@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Configuration
-@EnableJpaRepositories(basePackages = "com.example.epam.repository") // Adjust to your repository package
+@EnableJpaRepositories(basePackages = "com.example.epam.dao")
 @EnableTransactionManagement
 public class HibernateConfig {
 
