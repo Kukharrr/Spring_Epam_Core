@@ -43,7 +43,6 @@ public class AuthFilter implements Filter {
             return;
         }
 
-        // Check for Authorization header with Bearer token
         String authHeader = httpRequest.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             logger.error("Authentication required, transactionId: {}, path: {}", transactionId, path);
@@ -51,7 +50,6 @@ public class AuthFilter implements Filter {
             return;
         }
 
-        // Extract and validate JWT token
         String token = authHeader.substring(7);
         try {
             if (jwtUtil.validateToken(token)) {
