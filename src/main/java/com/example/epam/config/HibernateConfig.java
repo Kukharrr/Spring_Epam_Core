@@ -1,26 +1,15 @@
 package com.example.epam.config;
 
-import com.example.epam.entity.User;
 import org.flywaydb.core.Flyway;
-import org.hibernate.SessionFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration; // Correct Spring import
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-
-@Configuration // Correct Spring annotation
+@Configuration
+@EnableJpaRepositories(basePackages = "com.example.epam.dao")
+@EnableTransactionManagement
 public class HibernateConfig {
-
-    @Bean
-    public SessionFactory sessionFactory() {
-        try {
-            return new org.hibernate.cfg.Configuration()
-                    .addAnnotatedClass(User.class)
-                    .configure("hibernate.cfg.xml")
-                    .buildSessionFactory();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create Hibernate SessionFactory", e);
-        }
-    }
 
     @Bean
     public Flyway flyway() {
@@ -28,6 +17,7 @@ public class HibernateConfig {
                 .dataSource("jdbc:postgresql://postgres:5432/training_db", "postgres", "postgres")
                 .baselineOnMigrate(true)
                 .locations("classpath:db/migration")
+                .outOfOrder(true)
                 .load();
         flyway.migrate();
         return flyway;
