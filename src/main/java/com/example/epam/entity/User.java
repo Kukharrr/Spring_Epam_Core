@@ -25,7 +25,7 @@ public class User {
     @Column(name = "last_name")
     private String lastName;
 
-    @Column(name = "username")
+    @Column(name = "username", unique = true)
     private String username;
 
     @Column(name = "password")
@@ -34,11 +34,22 @@ public class User {
     @Column(name = "is_active")
     private boolean isActive;
 
+    @Transient
+    private String rawPassword;
+
     public boolean getIsActive() {
         return isActive;
     }
 
     public void setIsActive(boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public String getRawPassword() {
+        return rawPassword;
+    }
+
+    public void setRawPassword(String rawPassword) {
+        this.rawPassword = rawPassword;
     }
 }

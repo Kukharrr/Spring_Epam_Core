@@ -7,13 +7,13 @@ import com.example.epam.dto.TrainerUpdateDto;
 import com.example.epam.entity.Trainer;
 import com.example.epam.entity.Trainee;
 import com.example.epam.entity.User;
-import com.example.epam.entity.TrainingType;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,12 +27,14 @@ public class TrainerService {
     private final TrainerDao trainerDao;
     private final UserDao userDao;
     private final SessionFactory sessionFactory;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public TrainerService(TrainerDao trainerDao, UserDao userDao, SessionFactory sessionFactory) {
+    public TrainerService(TrainerDao trainerDao, UserDao userDao, SessionFactory sessionFactory, PasswordEncoder passwordEncoder) {
         this.trainerDao = trainerDao;
         this.userDao = userDao;
         this.sessionFactory = sessionFactory;
+        this.passwordEncoder = passwordEncoder;
     }
 
     private <T> T executeInTransaction(SessionFunction<T> function, String operation, String identifier, Object... params) {
@@ -76,7 +78,11 @@ public class TrainerService {
             user.setFirstName(trainerCreateDto.getFirstName());
             user.setLastName(trainerCreateDto.getLastName());
             user.setUsername(generateUniqueUsername(trainerCreateDto.getFirstName(), trainerCreateDto.getLastName()));
-            user.setPassword(generatePassword());
+
+            String rawPassword = generatePassword();
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            user.setRawPassword(rawPassword);
+
             user.setIsActive(true);
             userDao.save(user, session);
 
@@ -84,9 +90,12 @@ public class TrainerService {
             trainer.setUser(user);
             trainer.setSpecialization(trainerCreateDto.getSpecialization());
             trainerDao.save(trainer, session);
+
+            logger.info("Generated password for trainer {}: {}", user.getUsername(), rawPassword);
             return trainer;
         }, "create trainer", trainerCreateDto.getFirstName() + " " + trainerCreateDto.getLastName());
     }
+
 
     public List<Trainer> getAllTrainersWithTrainees() {
         return executeInTransaction(session -> {
@@ -105,7 +114,8 @@ public class TrainerService {
         executeInTransaction(session -> {
             Optional<Trainer> trainerOpt = trainerDao.findByUsername(username, session);
             Trainer trainer = trainerOpt.orElseThrow(() -> new RuntimeException("Trainer not found"));
-            trainer.getUser().setPassword(newPassword);
+
+            trainer.getUser().setPassword(passwordEncoder.encode(newPassword));
             userDao.update(trainer.getUser(), session);
         }, "update trainer password", username);
     }

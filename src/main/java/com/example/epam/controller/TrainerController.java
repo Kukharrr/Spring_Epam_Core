@@ -46,10 +46,17 @@ public class TrainerController {
     public ResponseEntity<RegistrationResponse> createTrainer(@Valid @RequestBody TrainerCreateDto trainerCreateDto) {
         String transactionId = UUID.randomUUID().toString();
         logger.info("Registering new trainer, transactionId: {}, firstName: {}, lastName: {}", transactionId, trainerCreateDto.getFirstName(), trainerCreateDto.getLastName());
+
         Trainer trainer = trainerService.createTrainer(trainerCreateDto);
-        RegistrationResponse response = new RegistrationResponse(trainer.getUser().getUsername(), trainer.getUser().getPassword());
+
+        RegistrationResponse response = new RegistrationResponse(
+                trainer.getUser().getUsername(),
+                trainer.getUser().getRawPassword()
+        );
+
         return ResponseEntity.status(201).body(response);
     }
+
 
     @GetMapping
     @Operation(summary = "Get all trainers", description = "Retrieve a list of all trainers after login")

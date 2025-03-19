@@ -46,10 +46,17 @@ public class TraineeController {
     public ResponseEntity<RegistrationResponse> createTrainee(@Valid @RequestBody TraineeCreateDto traineeCreateDto) {
         String transactionId = UUID.randomUUID().toString();
         logger.info("Registering new trainee, transactionId: {}, firstName: {}, lastName: {}", transactionId, traineeCreateDto.getFirstName(), traineeCreateDto.getLastName());
+
         Trainee trainee = traineeService.createTrainee(traineeCreateDto);
-        RegistrationResponse response = new RegistrationResponse(trainee.getUser().getUsername(), trainee.getUser().getPassword());
+
+        RegistrationResponse response = new RegistrationResponse(
+                trainee.getUser().getUsername(),
+                trainee.getUser().getRawPassword()
+        );
+
         return ResponseEntity.status(201).body(response);
     }
+
 
     @GetMapping("/{username}")
     @Operation(summary = "Get trainee profile", description = "Retrieve a trainee's profile after login")
