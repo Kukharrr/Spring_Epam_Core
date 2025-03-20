@@ -14,13 +14,13 @@ import org.hibernate.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.HashSet;
 
 @Service
 public class TraineeService {
@@ -29,13 +29,16 @@ public class TraineeService {
     private final UserDao userDao;
     private final TrainerDao trainerDao;
     private final SessionFactory sessionFactory;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public TraineeService(TraineeDao traineeDao, UserDao userDao, TrainerDao trainerDao, SessionFactory sessionFactory) {
+    public TraineeService(TraineeDao traineeDao, UserDao userDao, TrainerDao trainerDao,
+                          SessionFactory sessionFactory, PasswordEncoder passwordEncoder) {
         this.traineeDao = traineeDao;
         this.userDao = userDao;
         this.trainerDao = trainerDao;
         this.sessionFactory = sessionFactory;
+        this.passwordEncoder = passwordEncoder;
     }
 
     private <T> T executeInTransaction(SessionFunction<T> function, String operation, String identifier) {
@@ -75,22 +78,40 @@ public class TraineeService {
 
     public Trainee createTrainee(TraineeCreateDto traineeCreateDto) {
         return executeInTransaction(session -> {
-            User user = new User();
-            user.setFirstName(traineeCreateDto.getFirstName());
-            user.setLastName(traineeCreateDto.getLastName());
-            user.setUsername(generateUniqueUsername(traineeCreateDto.getFirstName(), traineeCreateDto.getLastName()));
-            user.setPassword(generatePassword());
-            user.setIsActive(true);
-            userDao.save(user, session);
+            User user = createUserForTrainee(traineeCreateDto, session);
 
-            Trainee trainee = new Trainee();
-            trainee.setUser(user);
-            trainee.setDateOfBirth(traineeCreateDto.getDateOfBirth());
-            trainee.setAddress(traineeCreateDto.getAddress());
-            traineeDao.save(trainee, session);
+            Trainee trainee = createTraineeEntity(traineeCreateDto, user, session);
+
+            logger.info("Generated password for trainee {}: {}", user.getUsername(), user.getRawPassword());
             return trainee;
         }, "create trainee", traineeCreateDto.getFirstName() + " " + traineeCreateDto.getLastName());
     }
+
+    private User createUserForTrainee(TraineeCreateDto traineeCreateDto, Session session) {
+        User user = new User();
+        user.setFirstName(traineeCreateDto.getFirstName());
+        user.setLastName(traineeCreateDto.getLastName());
+        user.setUsername(generateUniqueUsername(traineeCreateDto.getFirstName(), traineeCreateDto.getLastName()));
+
+        String rawPassword = generatePassword();
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setIsActive(true);
+
+        userDao.save(user, session);
+
+        user.setRawPassword(rawPassword);
+        return user;
+    }
+
+    private Trainee createTraineeEntity(TraineeCreateDto traineeCreateDto, User user, Session session) {
+        Trainee trainee = new Trainee();
+        trainee.setUser(user);
+        trainee.setDateOfBirth(traineeCreateDto.getDateOfBirth());
+        trainee.setAddress(traineeCreateDto.getAddress());
+        traineeDao.save(trainee, session);
+        return trainee;
+    }
+
 
     public Trainee getTraineeProfileWithTrainers(String username) {
         return executeInTransaction(session -> {
@@ -103,7 +124,8 @@ public class TraineeService {
         executeInTransaction(session -> {
             Optional<Trainee> traineeOpt = traineeDao.findByUsername(username, session);
             Trainee trainee = traineeOpt.orElseThrow(() -> new RuntimeException("Trainee not found"));
-            trainee.getUser().setPassword(newPassword);
+
+            trainee.getUser().setPassword(passwordEncoder.encode(newPassword));
             userDao.update(trainee.getUser(), session);
         }, "update trainee password", username);
     }
@@ -155,7 +177,8 @@ public class TraineeService {
             Optional<Trainee> traineeOpt = traineeDao.findByUsername(username, session);
             Trainee trainee = traineeOpt.orElseThrow(() -> new RuntimeException("Trainee not found"));
             List<Trainer> trainers = trainerUsernames.stream()
-                    .map(trainerUsername -> trainerDao.findByUsername(trainerUsername, session).orElseThrow(() -> new RuntimeException("Trainer not found: " + trainerUsername)))
+                    .map(trainerUsername -> trainerDao.findByUsername(trainerUsername, session)
+                            .orElseThrow(() -> new RuntimeException("Trainer not found: " + trainerUsername)))
                     .collect(Collectors.toList());
             trainee.setTrainers(trainers);
             traineeDao.updateTrainee(trainee, session);
